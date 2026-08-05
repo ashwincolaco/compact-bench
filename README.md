@@ -69,10 +69,33 @@ monotonically and leads once the budget is adequate; under tight budgets the los
 summary leads because it spans the whole history. Reversibility dominates
 *conditionally*, not universally.
 
-**Attribution / confidence** (preview): at 75% compression the reference model
-answers incorrectly while reporting ~0.95 confidence (ECE 0.95 vs 0.07 for the
-full cache) — compacted systems do not know what they dropped. Full sweeps in
-`runs/` after `compactbench attribution && compactbench confidence`.
+**Attribution** (does the system know what it dropped? n=18/cell):
+
+| method | ratio | acc | AUROC (self-report) | overclaim |
+|---|---|---|---|---|
+| StreamingLLM | 0.50 | 0.67 | 0.75 | 0.00 |
+| StreamingLLM | 0.75 | 0.33 | 0.75 | 0.00 |
+| SnapKV | 0.50 | 0.00 | — | 0.44 |
+| SnapKV | 0.75 | 0.00 | — | 0.28 |
+| Random | 0.50 | 0.06 | 0.24 | 0.53 |
+
+Self-knowledge tracks the *structure* of the eviction policy: positional
+StreamingLLM keeps a predictable set and never overclaims, while content-based and
+random eviction overclaim on 28–53% of failures ("—" = AUROC undefined, single
+class).
+
+**Confidence** (is post-compaction confidence calibrated?):
+
+| method | ratio | acc | mean conf | ECE |
+|---|---|---|---|---|
+| baseline (full cache) | 0.00 | 1.00 | 0.92 | **0.08** |
+| SnapKV | 0.50 | 0.00 | 0.87 | 0.87 |
+| SnapKV | 0.90 | 0.00 | 0.93 | **0.93** |
+| StreamingLLM | 0.90 | 0.00 | 0.96 | **0.96** |
+
+Verbal confidence is blind to compaction: stated confidence stays (or rises) near
+0.9 while accuracy falls to zero, so calibration error scales with compression.
+The model cannot feel its memory being removed.
 
 ## Design notes and caveats
 
