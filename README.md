@@ -69,6 +69,18 @@ benchmark sweeps, and it is recorded in every run's config; the ladder runs
 Qwen2.5-1.5B at both fp16 and NF4 so the size of that confound is measured rather
 than assumed.
 
+**Results (all six rungs, RTX 4060, 6h45m total).** The collapse point, the
+budget fraction where accuracy first falls under half the model's own baseline,
+lands within 82-86% at every rung, from Qwen2.5-0.5B up through Phi-3.5-mini's
+393,216-byte anchor: the collapse is a property of the budget fraction, not the
+absolute byte count. The attribution auditability finding replicates exactly
+(StreamingLLM overclaims 0.00 at every rung). The reversibility crossover holds
+at every full-precision rung but is eliminated by 4-bit weights at two of four
+quantized rungs, reappearing at 7B-NF4, a genuine and unexplained precision
+sensitivity we report rather than paper over. Full per-rung numbers, protocol,
+and discussion are in the paper (`iclr/main.tex`, §4.5 and Limitations, in the
+companion repo).
+
 **We cannot run above 7B on the hardware this was built for.** If you have the
 capacity, the sweep script and `compactbench scale` will read your JSON alongside
 ours, and we would like to see it. Open an issue with the run files attached.
