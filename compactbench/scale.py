@@ -156,18 +156,9 @@ def latex_table(rows):
     return "\n".join(out)
 
 
-def scale_frontier_fig(runs, out):
-    """Every rung's frontier, once against budget fraction and once against bytes.
-
-    Read the two panels together: the unit in which the curves line up is the unit
-    the collapse lives in.
-    """
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    data = load(runs)
-    fig, axes = plt.subplots(1, 2, figsize=(9, 3.4))
+def _rung_curves(data):
+    """{label: (xs_fraction, ys_accuracy, full_bpt)} for every rung with a frontier run."""
+    out = {}
     for tag, tasks in sorted(data.items()):
         f = tasks.get("frontier")
         if not f:
@@ -182,20 +173,52 @@ def scale_frontier_fig(runs, out):
         label = (f.get("model") or tag).split("/")[-1]
         if f.get("quant") == "nf4":
             label += " (nf4)"
-        axes[0].plot(xs, ys, marker="o", label=label)
-        axes[1].plot([x * f["full_bpt_bytes_per_tok"] for x in xs], ys, marker="o",
-                     label=label)
-    axes[0].set_xlabel("budget (fraction of the model's full cache)")
-    axes[1].set_xlabel("budget (bytes per token of history)")
-    axes[1].set_xscale("log")
-    for ax in axes:
-        ax.set_ylabel("accuracy")
-        ax.set_ylim(-0.03, 1.03)
-        ax.grid(alpha=0.3)
-    axes[1].legend(fontsize=6)
-    fig.tight_layout()
+        out[label] = (xs, ys, f["full_bpt_bytes_per_tok"])
+    return out
+
+
+def scale_frontier_fig(runs, out, panels="both"):
+    """Every rung's frontier, against budget fraction and/or absolute bytes.
+
+    `panels`: "both" (default, the appendix version: fraction left, bytes right,
+    read together to see which unit the collapse point lives in), or "fraction"
+    (a single narrow panel, sized for a main-text figure where space is tight).
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    curves = _rung_curves(load(runs))
     os.makedirs(out, exist_ok=True)
-    path = os.path.join(out, "scale.pdf")
+
+    if panels == "both":
+        fig, axes = plt.subplots(1, 2, figsize=(9, 2.6))
+        for label, (xs, ys, full_bpt) in curves.items():
+            axes[0].plot(xs, ys, marker="o", label=label)
+            axes[1].plot([x * full_bpt for x in xs], ys, marker="o", label=label)
+        axes[0].set_xlabel("budget (fraction of the model's full cache)")
+        axes[1].set_xlabel("budget (bytes per token of history)")
+        axes[1].set_xscale("log")
+        for ax in axes:
+            ax.set_ylabel("accuracy")
+            ax.set_ylim(-0.03, 1.03)
+            ax.grid(alpha=0.3)
+        axes[1].legend(fontsize=6)
+        fname = "scale.pdf"
+    else:
+        fig, ax = plt.subplots(figsize=(4.6, 2.7))
+        for label, (xs, ys, _full_bpt) in curves.items():
+            ax.plot(xs, ys, marker="o", markersize=3, linewidth=1.3, label=label)
+        ax.set_xlabel("budget (fraction of the model's full cache)", fontsize=8)
+        ax.set_ylabel("accuracy", fontsize=8)
+        ax.set_ylim(-0.03, 1.03)
+        ax.tick_params(labelsize=7)
+        ax.grid(alpha=0.3)
+        ax.legend(fontsize=6, loc="upper left")
+        fname = "scale_frac.pdf"
+
+    fig.tight_layout()
+    path = os.path.join(out, fname)
     fig.savefig(path)
     plt.close(fig)
     return path
@@ -218,4 +241,5 @@ def main(args):
     print()
     print(latex_table(rows))
     if not args.no_fig:
-        print("\nwrote", scale_frontier_fig(args.runs, args.out))
+        print("\nwrote", scale_frontier_fig(args.runs, args.out, panels="both"))
+        print("wrote", scale_frontier_fig(args.runs, args.out, panels="fraction"))
