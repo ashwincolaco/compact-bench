@@ -127,10 +127,12 @@ def summarise(runs="runs/scale"):
     return rows
 
 
-def _fmt(x, pct=False, nd=2):
+def _fmt(x, pct=False, nd=2, tex=False):
     if x is None:
         return "--"
-    return f"{100*x:.0f}\\%" if pct else f"{x:.{nd}f}"
+    if pct:
+        return f"{100*x:.0f}" + (r"\%" if tex else "%")
+    return f"{x:.{nd}f}"
 
 
 def latex_table(rows):
@@ -145,9 +147,9 @@ def latex_table(rows):
         name = (r.get("model") or r["rung"]).split("/")[-1].replace("_", r"\_")
         out.append(
             f"\\texttt{{{name}}} & {r.get('quant','--')} & "
-            f"{c.get('full_bpt', 0):,.0f} & {_fmt(c.get('frac'), pct=True)} & "
+            f"{c.get('full_bpt', 0):,.0f} & {_fmt(c.get('frac'), pct=True, tex=True)} & "
             f"{'--' if c.get('bpt') is None else format(c['bpt'], ',.0f')} & "
-            f"{_fmt(r.get('crossover'), pct=True)} & "
+            f"{_fmt(r.get('crossover'), pct=True, tex=True)} & "
             f"{_fmt(a.get('structural'))} / {_fmt(a.get('scored'))} & "
             f"{_fmt(k.get('ratio'), nd=1)} \\\\")
     out += [r"\bottomrule", r"\end{tabular}"]
