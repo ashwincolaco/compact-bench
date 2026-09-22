@@ -5,11 +5,12 @@
   compactbench attribution    does the system know what it dropped?
   compactbench confidence     is post-compaction confidence calibrated?
   compactbench figures        render figures from runs/*.json
+  compactbench scale          cross-scale analysis of a scale-ladder sweep
 """
 import argparse
 
 from .tasks import frontier, reversibility, attribution, confidence
-from . import figures
+from . import figures, scale
 
 TASKS = {
     "frontier": frontier,
@@ -29,10 +30,16 @@ def main():
     fp = sub.add_parser("figures", help="render figures from runs/*.json")
     fp.add_argument("--runs", default="runs")
     fp.add_argument("--out", default="figures")
+    sc = sub.add_parser("scale", help="cross-scale analysis of a scale-ladder sweep")
+    sc.add_argument("--runs", default="runs/scale")
+    sc.add_argument("--out", default="figures")
+    sc.add_argument("--no-fig", action="store_true")
 
     args = ap.parse_args()
     if args.task == "figures":
         figures.render_all(args.runs, args.out)
+    elif args.task == "scale":
+        scale.main(args)
     else:
         TASKS[args.task].main(args)
 

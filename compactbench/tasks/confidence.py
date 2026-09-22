@@ -9,6 +9,7 @@ baseline instrument; the protocol fixes the metrics, not the elicitation.
 """
 import json, os, random, re
 
+from ..bpt import ModelDims, bpt_full_cache
 from ..data import load_filler_pool, build_needle_context, sample_needle, QUESTION
 from ..models import load_kvpress_pipeline, default_presses
 from ..metrics import auroc, ece
@@ -16,6 +17,8 @@ from ..metrics import auroc, ece
 
 def add_args(p):
     p.add_argument("--model", default=None)
+    p.add_argument("--quant", default="fp16", choices=["fp16", "nf4"],
+                   help="weight precision; nf4 fits larger models on small GPUs")
     p.add_argument("--methods", nargs="+", default=["SnapKV", "StreamingLLM", "Random"])
     p.add_argument("--lengths", type=int, nargs="+", default=[2000, 4000])
     p.add_argument("--positions", type=float, nargs="+", default=[0.2, 0.5, 0.8])
@@ -44,7 +47,7 @@ def main(args):
     from ..models import DEFAULT_MODEL
     model_name = args.model or DEFAULT_MODEL
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-    pipe = load_kvpress_pipeline(model_name)
+    pipe = load_kvpress_pipeline(model_name, quant=args.quant)
     tok = pipe.tokenizer
     filler = load_filler_pool()
     rng = random.Random(0)
@@ -72,7 +75,10 @@ def main(args):
                         total += 1
             print(f"  L={L} pos={pos} done ({total} generations)")
 
-    out = {"model": model_name, "config": vars(args), "records": records, "summary": []}
+    dims = ModelDims.from_hf(pipe.model.config)
+    out = {"model": model_name, "quant": args.quant,
+           "full_bpt_bytes_per_tok": bpt_full_cache(dims),
+           "config": vars(args), "records": records, "summary": []}
     keys = sorted({(x["method"], x["ratio"]) for x in records})
     for mname, r in keys:
         xs = [x for x in records if x["method"] == mname and x["ratio"] == r]

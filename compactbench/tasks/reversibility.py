@@ -19,6 +19,8 @@ from ..models import load_causal_lm, gen, ntok
 
 def add_args(p):
     p.add_argument("--model", default=None)
+    p.add_argument("--quant", default="fp16", choices=["fp16", "nf4"],
+                   help="weight precision; nf4 fits larger models on small GPUs")
     p.add_argument("--budgets", type=float, nargs="+", default=[0.1, 0.25, 0.5, 0.75, 1.0])
     p.add_argument("--trials", type=int, default=3)
     p.add_argument("--n_chunks", type=int, default=24)
@@ -70,12 +72,12 @@ def main(args):
     from ..models import DEFAULT_MODEL
     model_name = args.model or DEFAULT_MODEL
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-    tok, model = load_causal_lm(model_name)
+    tok, model = load_causal_lm(model_name, quant=args.quant)
     rng = random.Random(0)
 
     docs = [build_fact_doc(rng, args.n_chunks, args.n_facts) for _ in range(args.trials)]
     total = sum(ntok(tok, " ".join(ch)) for ch, _ in docs) / len(docs)
-    out = {"model": model_name, "avg_total_tokens": total,
+    out = {"model": model_name, "quant": args.quant, "avg_total_tokens": total,
            "config": vars(args), "points": []}
     for f in args.budgets:
         B = max(32, int(f * total))

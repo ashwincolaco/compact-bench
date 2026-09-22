@@ -47,6 +47,32 @@ compactbench figures                           # render figures from runs/*.json
 Every task takes `--model`, `--trials`, `--out`, and task-specific sweep flags;
 `compactbench <task> --help` lists them. Results are JSON (per-record + summary).
 
+## Running at other scales
+
+The full-cache BPT anchor is a property of a model's attention shape, not its
+parameter count, so different models sit at very different points on the axis:
+Qwen2.5-0.5B anchors at 12,288 bytes per token and Phi-3.5-mini, which keeps 32 KV
+heads instead of 2, anchors at 393,216. Comparing rungs that far apart is what tells
+you whether the accuracy collapse lives at a fixed *fraction* of a model's own
+budget or at a fixed *byte count*.
+
+```bash
+pip install -e ".[quant]"           # adds bitsandbytes for 4-bit weights
+./scripts/scale_sweep.sh            # the six-rung ladder, cheapest first
+./scripts/scale_sweep.sh qwen7b     # or one rung by tag
+compactbench scale --runs runs/scale
+```
+
+`--quant nf4` loads weights in 4-bit NF4, which fits a 7B model in under 7 GiB of
+VRAM including the cache. Weight precision is independent of the KV budget the
+benchmark sweeps, and it is recorded in every run's config; the ladder runs
+Qwen2.5-1.5B at both fp16 and NF4 so the size of that confound is measured rather
+than assumed.
+
+**We cannot run above 7B on the hardware this was built for.** If you have the
+capacity, the sweep script and `compactbench scale` will read your JSON alongside
+ours, and we would like to see it. Open an issue with the run files attached.
+
 ## Reference results (Qwen2.5-1.5B-Instruct, RTX 4060)
 
 **Frontier** (needle retrieval in natural filler, 1,395 generations): the full

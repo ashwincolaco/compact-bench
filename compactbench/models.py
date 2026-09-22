@@ -2,22 +2,51 @@
 import torch
 
 DEFAULT_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
+QUANT_CHOICES = ("fp16", "nf4")
 
 
-def load_kvpress_pipeline(model_name=DEFAULT_MODEL, device="cuda"):
+def quant_kwargs(quant="fp16"):
+    """Weight-precision kwargs shared by both loaders.
+
+    fp16 is the reference precision. nf4 is 4-bit NF4 with double quantization and
+    an fp16 compute dtype, which is what lets models above ~3B fit an 8 GB card.
+    Weight precision is independent of the KV-cache budget the benchmark sweeps:
+    BPT prices the cache, not the weights. Quantizing weights is still a confound
+    for cross-model comparison, so it is recorded in every run's config and is
+    meant to be controlled by running one model at both precisions.
+    """
+    if quant == "fp16":
+        return {"dtype": torch.float16}
+    if quant == "nf4":
+        from transformers import BitsAndBytesConfig
+        return {"dtype": torch.float16,
+                "quantization_config": BitsAndBytesConfig(
+                    load_in_4bit=True, bnb_4bit_quant_type="nf4",
+                    bnb_4bit_compute_dtype=torch.float16,
+                    bnb_4bit_use_double_quant=True)}
+    raise ValueError(f"unknown quant {quant!r}, expected one of {QUANT_CHOICES}")
+
+
+def load_kvpress_pipeline(model_name=DEFAULT_MODEL, device="cuda", quant="fp16"):
     """KVPress text-generation pipeline (context compressed by a press per call)."""
     import kvpress  # noqa: F401  -- registers the "kv-press-text-generation" task
     from transformers import pipeline
+    kw = quant_kwargs(quant)
+    if quant == "fp16":
+        return pipeline("kv-press-text-generation", model=model_name,
+                        device=device, **kw)
+    # A 4-bit model is already placed on the GPU by accelerate, so the pipeline
+    # must not be handed a device as well.
     return pipeline("kv-press-text-generation", model=model_name,
-                    device=device, dtype=torch.float16)
+                    model_kwargs=kw)
 
 
-def load_causal_lm(model_name=DEFAULT_MODEL):
+def load_causal_lm(model_name=DEFAULT_MODEL, quant="fp16"):
     """Plain causal LM + tokenizer for the agent-layer tasks."""
     from transformers import AutoModelForCausalLM, AutoTokenizer
     tok = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(
-        model_name, torch_dtype=torch.float16, device_map="cuda").eval()
+        model_name, device_map="cuda", **quant_kwargs(quant)).eval()
     return tok, model
 
 

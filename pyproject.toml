@@ -21,6 +21,10 @@ dependencies = [
   "matplotlib",
 ]
 
+[project.optional-dependencies]
+# 4-bit NF4 weights, which is what lets 7B-class models run the sweep on an 8 GB card.
+quant = ["bitsandbytes>=0.43"]
+
 [project.scripts]
 compactbench = "compactbench.cli:main"
 
