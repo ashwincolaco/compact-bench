@@ -38,30 +38,33 @@ RUNGS=(
   "mistral24b|mistralai/Mistral-Small-24B-Instruct-2501|bf16"
 )
 
+# TASKS="reversibility" reruns a subset of the four task families.
+want_task () { [ -z "${TASKS:-}" ] || [[ " $TASKS " == *" $1 "* ]]; }
+
 run_rung () {
   local tag=$1 model=$2 quant=$3
   echo "=== rung $tag ($model, $quant) started $(date +%F\ %T)"
   local common=(--model "$model" --quant "$quant")
 
   # F1 frontier collapse: does it sit at a fixed budget fraction or a fixed byte count?
-  [ -f "$OUT/frontier-$tag.json" ] || compactbench frontier "${common[@]}" \
+  want_task frontier && [ ! -f "$OUT/frontier-$tag.json" ] && compactbench frontier "${common[@]}" \
       --lengths 2000 4000 --positions 0.1 0.5 0.9 \
       --ratios 0.1 0.25 0.5 0.75 0.9 --trials ${TRIALS:-8} \
       --out "$OUT/frontier-$tag.json" 2>&1 | tee -a "$OUT/$tag.log" | tail -2
 
   # F2 reversibility crossover: cheap, kept whole.
-  [ -f "$OUT/reversibility-$tag.json" ] || compactbench reversibility "${common[@]}" \
+  want_task reversibility && [ ! -f "$OUT/reversibility-$tag.json" ] && compactbench reversibility "${common[@]}" \
       --budgets 0.1 0.25 0.5 0.75 1.0 --trials ${TRIALS:-8} \
       --out "$OUT/reversibility-$tag.json" 2>&1 | tee -a "$OUT/$tag.log" | tail -2
 
   # F3 attribution is structural: positional auditable, content-scored overclaiming.
-  [ -f "$OUT/attribution-$tag.json" ] || compactbench attribution "${common[@]}" \
+  want_task attribution && [ ! -f "$OUT/attribution-$tag.json" ] && compactbench attribution "${common[@]}" \
       --methods SnapKV StreamingLLM Random --lengths 2000 4000 \
       --positions 0.2 0.5 0.8 --ratios 0.5 0.9 --trials ${TRIALS:-8} \
       --out "$OUT/attribution-$tag.json" 2>&1 | tee -a "$OUT/$tag.log" | tail -2
 
   # F4 calibration blindness: ECE rises while stated confidence stays flat.
-  [ -f "$OUT/confidence-$tag.json" ] || compactbench confidence "${common[@]}" \
+  want_task confidence && [ ! -f "$OUT/confidence-$tag.json" ] && compactbench confidence "${common[@]}" \
       --methods SnapKV StreamingLLM Random --lengths 2000 4000 \
       --positions 0.2 0.5 0.8 --ratios 0.0 0.5 0.9 --trials ${TRIALS:-8} \
       --out "$OUT/confidence-$tag.json" 2>&1 | tee -a "$OUT/$tag.log" | tail -2

@@ -30,9 +30,13 @@ def add_args(p):
 
 def _summarize_to_budget(tok, model, text, budget):
     words = max(20, int(budget * 0.75))
+    # The generation cap must cover the whole budget. A fixed 380-token cap cut
+    # summaries off mid-text at budgets above ~25%, losing every fact after the
+    # cut, and penalized thorough summarizers most. The result is truncated to
+    # the budget below either way.
     s = gen(tok, model, f"Summarize the following notes in at most {words} words, "
             f"preserving every specific name, attribute, and number:\n\n{text}",
-            max_new=min(380, int(budget * 1.4) + 40))
+            max_new=budget + 40)
     return tok.decode(tok(s)["input_ids"][:budget], skip_special_tokens=True)
 
 
