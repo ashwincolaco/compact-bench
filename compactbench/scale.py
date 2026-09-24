@@ -195,22 +195,19 @@ def generation_fig(runs, out):
 
     One hue per generation, never one per model: with a dozen rungs a per-model
     palette would cycle. Older rungs are thin and share one legend entry; the
-    newer ones are direct-labelled. A 4-bit rung is drawn only when the model has
-    no 16-bit run, since the 16-bit/NF4 pairs overlap.
+    newer ones are direct-labelled. Every rung is drawn, 4-bit runs included, so
+    the figure shows exactly the settings the paper's numbers are computed over.
     """
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     curves = _rung_curves(load(runs))
-    full = {lab[:-len(" (nf4)")] for lab in curves if not lab.endswith(" (nf4)")}
     # Drawn at print size (0.55 textwidth ~ 3.0in) so fonts are not shrunk.
     fig, ax = plt.subplots(figsize=(3.0, 2.25))
     labelled = []
     for label, (xs, ys, _bpt) in curves.items():
         base = label.removesuffix(" (nf4)")
-        if label.endswith(" (nf4)") and base in full:
-            continue
         gen = "new" if base.startswith(NEW_GENERATION) else "old"
         if gen == "old":
             ax.plot(xs, ys, color=GEN_COLORS["old"], linewidth=1.0, alpha=0.55)
@@ -229,9 +226,9 @@ def generation_fig(runs, out):
                     bbox=dict(boxstyle="square,pad=0.15", fc="white", ec="none"))
         last = y
     ax.plot([], [], color=GEN_COLORS["old"], linewidth=1.0,
-            label="older generation")
+            label="released before Oct 2024")
     ax.plot([], [], color=GEN_COLORS["new"], linewidth=2.0, marker="o",
-            markersize=3.5, label="current generation")
+            markersize=3.5, label="released Nov 2024 onwards")
     ax.set_xlabel("budget (fraction of the model's full cache)", fontsize=7)
     ax.set_ylabel("scorer-averaged accuracy", fontsize=7)
     ax.set_ylim(-0.03, 1.03)
@@ -255,12 +252,9 @@ def generation_bytes_fig(runs, out):
     import matplotlib.pyplot as plt
 
     curves = _rung_curves(load(runs))
-    full = {lab[:-len(" (nf4)")] for lab in curves if not lab.endswith(" (nf4)")}
     fig, axes = plt.subplots(1, 2, figsize=(9, 2.6))
     for label, (xs, ys, bpt) in curves.items():
         base = label.removesuffix(" (nf4)")
-        if label.endswith(" (nf4)") and base in full:
-            continue
         new = base.startswith(NEW_GENERATION)
         kw = dict(color=GEN_COLORS["new" if new else "old"],
                   linewidth=2.0 if new else 1.0, alpha=1.0 if new else 0.55,
@@ -274,9 +268,9 @@ def generation_bytes_fig(runs, out):
         ax.set_ylabel("accuracy")
         ax.set_ylim(-0.03, 1.03)
         ax.grid(alpha=0.3)
-    axes[1].plot([], [], color=GEN_COLORS["old"], linewidth=1.0, label="older generation")
+    axes[1].plot([], [], color=GEN_COLORS["old"], linewidth=1.0, label="released before Oct 2024")
     axes[1].plot([], [], color=GEN_COLORS["new"], linewidth=2.0, marker="o",
-                 markersize=3, label="current generation")
+                 markersize=3, label="released Nov 2024 onwards")
     axes[1].legend(fontsize=7, frameon=False, loc="upper left")
     fig.tight_layout()
     os.makedirs(out, exist_ok=True)
