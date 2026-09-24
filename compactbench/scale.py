@@ -181,6 +181,15 @@ NEW_GENERATION = ("Qwen3-", "phi-4", "OLMo-2", "Mistral-Small")
 GEN_COLORS = {"old": "#2a78d6", "new": "#eb6834"}   # validated pair (CVD dE 24.7)
 
 
+def _short(label):
+    """Direct-label name: family and size only, '*' for 4-bit weights."""
+    name = label.removesuffix(" (nf4)")
+    for long, short in (("Mistral-Small-24B-Instruct-2501", "Mistral-24B"),
+                        ("OLMo-2-1124-13B-Instruct", "OLMo-2-13B"), ("phi-4", "Phi-4")):
+        name = name.replace(long, short)
+    return name + ("*" if label.endswith(" (nf4)") else "")
+
+
 def generation_fig(runs, out):
     """Main-text frontier figure coloured by model generation.
 
@@ -214,7 +223,7 @@ def generation_fig(runs, out):
     last = None
     for y, lab in at:
         y = y if last is None else min(y, last - 0.075)
-        ax.annotate(lab.replace("-Instruct", "").replace("-1124", ""), (0.5, y),
+        ax.annotate(_short(lab), (0.5, y),
                     xytext=(-6, 0), textcoords="offset points", ha="right",
                     va="center", fontsize=6.5, color="#52514e", zorder=5,
                     bbox=dict(boxstyle="square,pad=0.15", fc="white", ec="none"))
