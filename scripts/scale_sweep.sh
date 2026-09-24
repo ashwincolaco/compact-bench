@@ -5,7 +5,7 @@
 # reference sweep, and writes one JSON per (task, rung) under runs/scale/.
 #
 #   ./scripts/scale_sweep.sh            # every rung, in cheapest-first order
-#   ./scripts/scale_sweep.sh qwen7b     # one rung by tag
+#   ./scripts/scale_sweep.sh qwen7b     # one rung by tag (several run in order)
 #   TRIALS=3 ./scripts/scale_sweep.sh   # thinner cells for a quick smoke run
 #
 # Trials default to 8, giving 48 generations per frontier cell. Three is enough to
@@ -15,7 +15,7 @@
 # Rungs are resumable: a rung whose four JSONs already exist is skipped.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-OUT=runs/scale
+OUT=${OUT:-runs/scale}
 mkdir -p "$OUT"
 
 # tag|model|quant
@@ -26,6 +26,16 @@ RUNGS=(
   "qwen3b|Qwen/Qwen2.5-3B-Instruct|nf4"
   "phi3.5mini|microsoft/Phi-3.5-mini-instruct|nf4"
   "qwen7b|Qwen/Qwen2.5-7B-Instruct|nf4"
+  # Second ladder (32 GB cards): 16-bit controls for the 4-bit rungs, then current
+  # models across four more families. New families run in bf16, their native dtype.
+  "qwen3b-fp16|Qwen/Qwen2.5-3B-Instruct|fp16"
+  "qwen7b-fp16|Qwen/Qwen2.5-7B-Instruct|fp16"
+  "phi3.5mini-bf16|microsoft/Phi-3.5-mini-instruct|bf16"
+  "qwen3-8b|Qwen/Qwen3-8B|bf16"
+  "qwen3-14b|Qwen/Qwen3-14B|bf16"
+  "phi4|microsoft/phi-4|bf16"
+  "olmo2-13b|allenai/OLMo-2-1124-13B-Instruct|bf16"
+  "mistral24b|mistralai/Mistral-Small-24B-Instruct-2501|bf16"
 )
 
 run_rung () {
@@ -59,10 +69,13 @@ run_rung () {
   echo "=== rung $tag finished $(date +%F\ %T)"
 }
 
-want=${1:-all}
-for spec in "${RUNGS[@]}"; do
-  IFS='|' read -r tag model quant <<< "$spec"
-  [ "$want" = all ] || [ "$want" = "$tag" ] || continue
-  run_rung "$tag" "$model" "$quant"
+# Tags run in the order given, so one GPU's queue can be ordered by priority.
+want=("${@:-all}")
+for w in "${want[@]}"; do
+  for spec in "${RUNGS[@]}"; do
+    IFS='|' read -r tag model quant <<< "$spec"
+    [ "$w" = all ] || [ "$w" = "$tag" ] || continue
+    run_rung "$tag" "$model" "$quant"
+  done
 done
 echo "sweep done; analyse with: compactbench scale --runs $OUT"

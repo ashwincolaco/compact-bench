@@ -13,7 +13,7 @@ from ..models import load_kvpress_pipeline, default_presses
 
 def add_args(p):
     p.add_argument("--model", default=None)
-    p.add_argument("--quant", default="fp16", choices=["fp16", "nf4"],
+    p.add_argument("--quant", default="fp16", choices=["fp16", "bf16", "nf4"],
                    help="weight precision; nf4 fits larger models on small GPUs")
     p.add_argument("--lengths", type=int, nargs="+", default=[2000, 4000, 8000])
     p.add_argument("--positions", type=float, nargs="+", default=[0.1, 0.3, 0.5, 0.7, 0.9])
