@@ -177,6 +177,107 @@ def _rung_curves(data):
     return out
 
 
+NEW_GENERATION = ("Qwen3-", "phi-4", "OLMo-2", "Mistral-Small")
+GEN_COLORS = {"old": "#2a78d6", "new": "#eb6834"}   # validated pair (CVD dE 24.7)
+
+
+def generation_fig(runs, out):
+    """Main-text frontier figure coloured by model generation.
+
+    One hue per generation, never one per model: with a dozen rungs a per-model
+    palette would cycle. Older rungs are thin and share one legend entry; the
+    newer ones are direct-labelled. A 4-bit rung is drawn only when the model has
+    no 16-bit run, since the 16-bit/NF4 pairs overlap.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    curves = _rung_curves(load(runs))
+    full = {lab[:-len(" (nf4)")] for lab in curves if not lab.endswith(" (nf4)")}
+    # Drawn at print size (0.55 textwidth ~ 3.0in) so fonts are not shrunk.
+    fig, ax = plt.subplots(figsize=(3.0, 2.25))
+    labelled = []
+    for label, (xs, ys, _bpt) in curves.items():
+        base = label.removesuffix(" (nf4)")
+        if label.endswith(" (nf4)") and base in full:
+            continue
+        gen = "new" if base.startswith(NEW_GENERATION) else "old"
+        if gen == "old":
+            ax.plot(xs, ys, color=GEN_COLORS["old"], linewidth=1.0, alpha=0.55)
+        else:
+            ax.plot(xs, ys, color=GEN_COLORS["new"], linewidth=2.0, marker="o",
+                    markersize=3.5)
+            labelled.append((label, xs, ys))
+    # Direct labels at the 50% point, nudged apart so they do not collide.
+    at = sorted(((ys[xs.index(0.5)], lab) for lab, xs, ys in labelled), reverse=True)
+    last = None
+    for y, lab in at:
+        y = y if last is None else min(y, last - 0.075)
+        ax.annotate(lab.replace("-Instruct", "").replace("-1124", ""), (0.5, y),
+                    xytext=(-6, 0), textcoords="offset points", ha="right",
+                    va="center", fontsize=6.5, color="#52514e", zorder=5,
+                    bbox=dict(boxstyle="square,pad=0.15", fc="white", ec="none"))
+        last = y
+    ax.plot([], [], color=GEN_COLORS["old"], linewidth=1.0,
+            label="older generation")
+    ax.plot([], [], color=GEN_COLORS["new"], linewidth=2.0, marker="o",
+            markersize=3.5, label="current generation")
+    ax.set_xlabel("budget (fraction of the model's full cache)", fontsize=7)
+    ax.set_ylabel("scorer-averaged accuracy", fontsize=7)
+    ax.set_ylim(-0.03, 1.03)
+    ax.tick_params(labelsize=6.5)
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=6.5, loc="lower right", frameon=False)
+    fig.tight_layout()
+    os.makedirs(out, exist_ok=True)
+    path = os.path.join(out, "scale_gen.pdf")
+    fig.savefig(path)
+    fig.savefig(path.replace(".pdf", ".png"), dpi=200)
+    plt.close(fig)
+    return path
+
+
+def generation_bytes_fig(runs, out):
+    """Appendix companion to `generation_fig`: every rung against budget fraction
+    (left) and absolute bytes per token (right, log), coloured by generation."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    curves = _rung_curves(load(runs))
+    full = {lab[:-len(" (nf4)")] for lab in curves if not lab.endswith(" (nf4)")}
+    fig, axes = plt.subplots(1, 2, figsize=(9, 2.6))
+    for label, (xs, ys, bpt) in curves.items():
+        base = label.removesuffix(" (nf4)")
+        if label.endswith(" (nf4)") and base in full:
+            continue
+        new = base.startswith(NEW_GENERATION)
+        kw = dict(color=GEN_COLORS["new" if new else "old"],
+                  linewidth=2.0 if new else 1.0, alpha=1.0 if new else 0.55,
+                  marker="o" if new else None, markersize=3)
+        axes[0].plot(xs, ys, **kw)
+        axes[1].plot([x * bpt for x in xs], ys, **kw)
+    axes[0].set_xlabel("budget (fraction of the model's full cache)")
+    axes[1].set_xlabel("budget (bytes per token of history)")
+    axes[1].set_xscale("log")
+    for ax in axes:
+        ax.set_ylabel("accuracy")
+        ax.set_ylim(-0.03, 1.03)
+        ax.grid(alpha=0.3)
+    axes[1].plot([], [], color=GEN_COLORS["old"], linewidth=1.0, label="older generation")
+    axes[1].plot([], [], color=GEN_COLORS["new"], linewidth=2.0, marker="o",
+                 markersize=3, label="current generation")
+    axes[1].legend(fontsize=7, frameon=False, loc="upper left")
+    fig.tight_layout()
+    os.makedirs(out, exist_ok=True)
+    path = os.path.join(out, "scale_gen_bytes.pdf")
+    fig.savefig(path)
+    fig.savefig(path.replace(".pdf", ".png"), dpi=200)
+    plt.close(fig)
+    return path
+
+
 def scale_frontier_fig(runs, out, panels="both"):
     """Every rung's frontier, against budget fraction and/or absolute bytes.
 
