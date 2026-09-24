@@ -69,6 +69,32 @@ def _patch_kvpress_olmo2():
             mod.get_prerope_query_states = query_states
         if hasattr(mod, "get_prerope_key_states"):
             mod.get_prerope_key_states = key_states
+
+    # OLMo-2 keeps its rotary cos/sin in float32, which KVPress's scorers then
+    # multiply against bf16 queries and keys. Cast them for scoring only. The hook
+    # runs after the attention forward, so the model's own computation, and the
+    # cache being compressed, are untouched.
+    from kvpress.presses.base_press import BasePress
+    from kvpress.presses.expected_attention_press import ExpectedAttentionPress
+    orig_hook, orig_rope = BasePress.forward_hook, ExpectedAttentionPress.apply_avg_rope
+
+    def forward_hook(self, module, input, kwargs, output):
+        pe = kwargs.get("position_embeddings")
+        if isinstance(module, Olmo2Attention) and pe is not None:
+            dt = kwargs["hidden_states"].dtype
+            kwargs = {**kwargs, "position_embeddings": tuple(t.to(dt) for t in pe)}
+        return orig_hook(self, module, input, kwargs, output)
+
+    def apply_avg_rope(self, module, mu, cov, q_len):
+        if not isinstance(module, Olmo2Attention):
+            return orig_rope(self, module, mu, cov, q_len)
+        dt = mu.dtype
+        mu, cov = orig_rope(self, module, mu.float(),
+                            None if cov is None else cov.float(), q_len)
+        return mu.to(dt), None if cov is None else cov.to(dt)
+
+    BasePress.forward_hook = forward_hook
+    ExpectedAttentionPress.apply_avg_rope = apply_avg_rope
     utils._olmo2_patched = True
 
 
