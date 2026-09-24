@@ -36,6 +36,12 @@ RUNGS=(
   "phi4|microsoft/phi-4|bf16"
   "olmo2-13b|allenai/OLMo-2-1124-13B-Instruct|bf16"
   "mistral24b|mistralai/Mistral-Small-24B-Instruct-2501|bf16"
+  # KVPress breaks when accelerate shards a model across GPUs (the attention mask
+  # is built for the compressed length while other layers keep the full cache),
+  # so the two models too large for one 32 GB card at 16-bit run in NF4, which the
+  # 16-bit/NF4 pairs above show moves the collapse point by at most two points.
+  "qwen3-14b-nf4|Qwen/Qwen3-14B|nf4"
+  "mistral24b-nf4|mistralai/Mistral-Small-24B-Instruct-2501|nf4"
 )
 
 # TASKS="reversibility" reruns a subset of the four task families.
