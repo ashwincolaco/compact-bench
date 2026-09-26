@@ -78,6 +78,7 @@ python scripts/queue.py scripts/jobs_v3.txt q.log   # batch 3, exactly as run
 python scripts/v3_report.py runs                    # the paper's tables
 python scripts/v3_report.py runs table              # the per-setting appendix table
 python scripts/v3_figures.py runs figures           # mechanisms and collapse-vs-size figures
+python scripts/intervals.py runs                    # 95% intervals, regression, dose-response fit
 compactbench scale --runs runs/scale                # the appendix frontier figures
 ```
 
