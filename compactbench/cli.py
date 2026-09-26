@@ -4,12 +4,14 @@
   compactbench reversibility  recoverable vs lossy storage at equal budget
   compactbench attribution    does the system know what it dropped?
   compactbench confidence     is post-compaction confidence calibrated?
+  compactbench audit          probe, confidence, and needle survival on one cache
+  compactbench mechanisms     eviction, quantization, prompt, summary on one axis
   compactbench figures        render figures from runs/*.json
   compactbench scale          cross-scale analysis of a scale-ladder sweep
 """
 import argparse
 
-from .tasks import frontier, reversibility, attribution, confidence
+from .tasks import frontier, reversibility, attribution, confidence, audit, mechanisms
 from . import figures, scale
 
 TASKS = {
@@ -17,6 +19,8 @@ TASKS = {
     "reversibility": reversibility,
     "attribution": attribution,
     "confidence": confidence,
+    "audit": audit,
+    "mechanisms": mechanisms,
 }
 
 

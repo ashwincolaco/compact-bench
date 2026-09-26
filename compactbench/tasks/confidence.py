@@ -17,7 +17,7 @@ from ..metrics import auroc, ece
 
 def add_args(p):
     p.add_argument("--model", default=None)
-    p.add_argument("--quant", default="fp16", choices=["fp16", "bf16", "nf4"],
+    p.add_argument("--quant", default="fp16", choices=["fp16", "bf16", "nf4", "prequant"],
                    help="weight precision; nf4 fits larger models on small GPUs")
     p.add_argument("--methods", nargs="+", default=["SnapKV", "StreamingLLM", "Random"])
     p.add_argument("--lengths", type=int, nargs="+", default=[2000, 4000])

@@ -2,7 +2,7 @@
 import torch
 
 DEFAULT_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
-QUANT_CHOICES = ("fp16", "bf16", "nf4")
+QUANT_CHOICES = ("fp16", "bf16", "nf4", "prequant")
 
 
 def quant_kwargs(quant="fp16"):
@@ -19,6 +19,10 @@ def quant_kwargs(quant="fp16"):
         return {"dtype": torch.float16}
     if quant == "bf16":
         return {"dtype": torch.bfloat16}
+    if quant == "prequant":
+        # A checkpoint saved already quantized (e.g. bitsandbytes NF4): its config
+        # carries the quantization, so only the compute dtype is set here.
+        return {"dtype": torch.float16}
     if quant == "nf4":
         from transformers import BitsAndBytesConfig
         return {"dtype": torch.float16,

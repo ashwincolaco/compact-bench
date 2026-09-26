@@ -177,7 +177,7 @@ def _rung_curves(data):
     return out
 
 
-NEW_GENERATION = ("Qwen3-", "phi-4", "OLMo-2", "Mistral-Small")
+NEW_GENERATION = ("Qwen3-", "phi-4", "OLMo-2", "Mistral-Small", "SmolLM2")
 GEN_COLORS = {"old": "#2a78d6", "new": "#eb6834"}   # validated pair (CVD dE 24.7)
 
 

@@ -13,18 +13,21 @@ whole history while a bounded raw window only holds the recent fraction.
 """
 import json, os, random
 
-from ..data import build_fact_doc
+from ..data import build_fact_doc, build_dense_fact_doc
 from ..models import load_causal_lm, gen, ntok
 
 
 def add_args(p):
     p.add_argument("--model", default=None)
-    p.add_argument("--quant", default="fp16", choices=["fp16", "bf16", "nf4"],
+    p.add_argument("--quant", default="fp16", choices=["fp16", "bf16", "nf4", "prequant"],
                    help="weight precision; nf4 fits larger models on small GPUs")
     p.add_argument("--budgets", type=float, nargs="+", default=[0.1, 0.25, 0.5, 0.75, 1.0])
     p.add_argument("--trials", type=int, default=3)
     p.add_argument("--n_chunks", type=int, default=24)
     p.add_argument("--n_facts", type=int, default=12)
+    p.add_argument("--dense", action="store_true",
+                   help="two facts per chunk and one filler sentence, so a summary "
+                        "cannot hold every fact at small budgets")
     p.add_argument("--out", default="runs/reversibility.json")
 
 
@@ -79,7 +82,10 @@ def main(args):
     tok, model = load_causal_lm(model_name, quant=args.quant)
     rng = random.Random(0)
 
-    docs = [build_fact_doc(rng, args.n_chunks, args.n_facts) for _ in range(args.trials)]
+    if args.dense:
+        docs = [build_dense_fact_doc(rng, args.n_chunks) for _ in range(args.trials)]
+    else:
+        docs = [build_fact_doc(rng, args.n_chunks, args.n_facts) for _ in range(args.trials)]
     total = sum(ntok(tok, " ".join(ch)) for ch, _ in docs) / len(docs)
     out = {"model": model_name, "quant": args.quant, "avg_total_tokens": total,
            "config": vars(args), "points": []}
