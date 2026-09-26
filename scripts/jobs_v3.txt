@@ -1,0 +1,50 @@
+# phase 1: new-generation small models (size confound)
+runs/v3/fr-qwen3-1.7b.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --model Qwen/Qwen3-1.7B --quant bf16
+runs/v3/au-qwen3-1.7b.json | audit --trials 8 --model Qwen/Qwen3-1.7B --quant bf16
+runs/v3/rv-qwen3-1.7b.json | reversibility --budgets 0.1 0.25 0.5 0.75 1.0 --trials 8 --model Qwen/Qwen3-1.7B --quant bf16
+runs/v3/fr-qwen3-0.6b.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --model Qwen/Qwen3-0.6B --quant bf16
+runs/v3/au-qwen3-0.6b.json | audit --trials 8 --model Qwen/Qwen3-0.6B --quant bf16
+runs/v3/rv-qwen3-0.6b.json | reversibility --budgets 0.1 0.25 0.5 0.75 1.0 --trials 8 --model Qwen/Qwen3-0.6B --quant bf16
+runs/v3/fr-qwen3-4b-nf4.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --model Qwen/Qwen3-4B --quant nf4
+runs/v3/au-qwen3-4b-nf4.json | audit --trials 8 --model Qwen/Qwen3-4B --quant nf4
+runs/v3/rv-qwen3-4b-nf4.json | reversibility --budgets 0.1 0.25 0.5 0.75 1.0 --trials 8 --model Qwen/Qwen3-4B --quant nf4
+runs/v3/fr-smollm2-1.7b.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --model HuggingFaceTB/SmolLM2-1.7B-Instruct --quant bf16
+runs/v3/au-smollm2-1.7b.json | audit --trials 8 --model HuggingFaceTB/SmolLM2-1.7B-Instruct --quant bf16
+runs/v3/rv-smollm2-1.7b.json | reversibility --budgets 0.1 0.25 0.5 0.75 1.0 --trials 8 --model HuggingFaceTB/SmolLM2-1.7B-Instruct --quant bf16
+runs/v3/fr-olmo2-1b.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --model allenai/OLMo-2-0425-1B-Instruct --quant bf16
+runs/v3/au-olmo2-1b.json | audit --trials 8 --model allenai/OLMo-2-0425-1B-Instruct --quant bf16
+runs/v3/rv-olmo2-1b.json | reversibility --budgets 0.1 0.25 0.5 0.75 1.0 --trials 8 --model allenai/OLMo-2-0425-1B-Instruct --quant bf16
+# phase 2: audit controls on the earlier local settings
+runs/v3/au-qwen1.5b.json | audit --trials 8 --model Qwen/Qwen2.5-1.5B-Instruct --quant fp16
+runs/v3/au-qwen0.5b.json | audit --trials 8 --model Qwen/Qwen2.5-0.5B-Instruct --quant fp16
+runs/v3/au-qwen3b-nf4.json | audit --trials 8 --model Qwen/Qwen2.5-3B-Instruct --quant nf4
+runs/v3/au-qwen7b-nf4.json | audit --trials 8 --model Qwen/Qwen2.5-7B-Instruct --quant nf4
+runs/v3/au-phi3.5mini-nf4.json | audit --trials 8 --model microsoft/Phi-3.5-mini-instruct --quant nf4
+# phase 3: mechanisms on one axis, one model per generation
+runs/v3/me-qwen1.5b.json | mechanisms --trials 8 --model Qwen/Qwen2.5-1.5B-Instruct --quant fp16
+runs/v3/me-qwen3-1.7b.json | mechanisms --trials 8 --model Qwen/Qwen3-1.7B --quant bf16
+# dense reversibility for the reference pair, moved ahead
+runs/v3/rd-qwen1.5b.json | reversibility --dense --budgets 0.1 0.25 0.5 0.75 1.0 --trials 4 --model Qwen/Qwen2.5-1.5B-Instruct --quant fp16
+runs/v3/rd-qwen3-1.7b.json | reversibility --dense --budgets 0.1 0.25 0.5 0.75 1.0 --trials 4 --model Qwen/Qwen3-1.7B --quant bf16
+# phase 4: query-aware and multikey frontiers, size-matched pairs
+runs/v3/qa-qwen1.5b.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --query-aware --model Qwen/Qwen2.5-1.5B-Instruct --quant fp16
+runs/v3/mk-qwen1.5b.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --variant multikey --model Qwen/Qwen2.5-1.5B-Instruct --quant fp16
+runs/v3/qa-qwen3-1.7b.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --query-aware --model Qwen/Qwen3-1.7B --quant bf16
+runs/v3/mk-qwen3-1.7b.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --variant multikey --model Qwen/Qwen3-1.7B --quant bf16
+runs/v3/qa-qwen3b-nf4.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --query-aware --model Qwen/Qwen2.5-3B-Instruct --quant nf4
+runs/v3/mk-qwen3b-nf4.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --variant multikey --model Qwen/Qwen2.5-3B-Instruct --quant nf4
+runs/v3/qa-qwen3-4b-nf4.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --query-aware --model Qwen/Qwen3-4B --quant nf4
+runs/v3/mk-qwen3-4b-nf4.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --variant multikey --model Qwen/Qwen3-4B --quant nf4
+runs/v3/qa-qwen0.5b.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --query-aware --model Qwen/Qwen2.5-0.5B-Instruct --quant fp16
+runs/v3/mk-qwen0.5b.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --variant multikey --model Qwen/Qwen2.5-0.5B-Instruct --quant fp16
+runs/v3/qa-qwen3-0.6b.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --query-aware --model Qwen/Qwen3-0.6B --quant bf16
+runs/v3/mk-qwen3-0.6b.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --variant multikey --model Qwen/Qwen3-0.6B --quant bf16
+# phase 5: dense-document reversibility
+runs/v3/rd-qwen0.5b.json | reversibility --dense --budgets 0.1 0.25 0.5 0.75 1.0 --trials 4 --model Qwen/Qwen2.5-0.5B-Instruct --quant fp16
+runs/v3/rd-qwen3-0.6b.json | reversibility --dense --budgets 0.1 0.25 0.5 0.75 1.0 --trials 4 --model Qwen/Qwen3-0.6B --quant bf16
+runs/v3/rd-qwen3b-nf4.json | reversibility --dense --budgets 0.1 0.25 0.5 0.75 1.0 --trials 4 --model Qwen/Qwen2.5-3B-Instruct --quant nf4
+runs/v3/rd-qwen3-4b-nf4.json | reversibility --dense --budgets 0.1 0.25 0.5 0.75 1.0 --trials 4 --model Qwen/Qwen3-4B --quant nf4
+# server: earlier-generation 14B from a published 4-bit checkpoint (one RTX 5000 Ada)
+runs/v3/fr-qwen14b-nf4.json | frontier --lengths 2000 4000 --positions 0.1 0.5 0.9 --ratios 0.1 0.25 0.5 0.75 0.9 --trials 8 --model unsloth/Qwen2.5-14B-Instruct-bnb-4bit --quant prequant
+runs/v3/au-qwen14b-nf4.json | audit --trials 8 --model unsloth/Qwen2.5-14B-Instruct-bnb-4bit --quant prequant
+runs/v3/rv-qwen14b-nf4.json | reversibility --budgets 0.1 0.25 0.5 0.75 1.0 --trials 8 --model unsloth/Qwen2.5-14B-Instruct-bnb-4bit --quant prequant

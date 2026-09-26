@@ -10,8 +10,7 @@ readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
 authors = [
-  {name = "Ashwin Gerard Colaco"},
-  {name = "Nada Lahjouji"},
+  {name = "Anonymous authors"},
 ]
 dependencies = [
   "torch",
@@ -24,6 +23,8 @@ dependencies = [
 [project.optional-dependencies]
 # 4-bit NF4 weights, which is what lets 7B-class models run the sweep on an 8 GB card.
 quant = ["bitsandbytes>=0.43"]
+# LLMLingua-2 prompt compression for the mechanisms task.
+mech = ["llmlingua>=0.2"]
 
 [project.scripts]
 compactbench = "compactbench.cli:main"

@@ -2,187 +2,137 @@
 
 **One budget axis for memory compaction in LLMs and agents.**
 
-Methods that compact a model's memory — KV-cache eviction, quantization, prompt
-compression, gisting, agent summarization — are evaluated in separate literatures
-on incompatible axes (compression ratio at fixed perplexity, tokens saved at fixed
-accuracy, recall at fixed state size). COMPACT-Bench puts them on one axis,
-**bytes-per-token-of-history (BPT)**: the bytes of retained memory state per token
-of original context. A KV evictor keeping 25% of tokens and a 4-bit quantizer land
-on the same point; an agent's summary can be priced on the same scale.
+Methods that shrink what a language model keeps in memory are developed in
+separate literatures, and each reports its savings in its own unit. KV-cache
+eviction reports the share of tokens kept, quantization reports bits per entry,
+prompt compression reports a token ratio, and agent memory reports the size of its
+store. COMPACT-Bench prices all of them in one unit, **bytes of retained state per
+token of history (BPT)**, computed from the model's cache dimensions, and then asks
+four questions at matched budgets: how much accuracy a method keeps, whether exact
+or lossy retention does better, whether the system can tell what it discarded, and
+whether its stated confidence reflects what its memory still supports.
 
-Reference implementation for the benchmark proposed in
-*What to Keep, What to Forget: A Rate–Distortion View of Memory Compaction in LLMs
-and Agents* (Colaco & Lahjouji, 2026).
+This repository is the reference implementation for an anonymous ICLR 2027
+submission, together with the scripts that regenerate every table and figure in it.
 
-## The four tasks
+- **Interactive results:** [project page](https://anonymous.4open.science/w/compact-bench-6A71/index.html)
+  (source in `docs/`)
+- **Paper:** [`docs/paper.pdf`](docs/paper.pdf)
 
-| Task | Question it answers | Metrics |
+## What it found
+
+Across 21 settings of 16 open models from 0.5B to 24B parameters:
+
+| Finding | Evidence |
+|---|---|
+| Once every stored byte is counted, the mechanisms differ widely at the same budget, and which one wins depends on the model. | On Qwen3-1.7B a 2-bit KV cache keeps 0.98 accuracy at 22% of the full cache, while eviction, prompt compression, and summaries keep at most 0.56 below 30%. On Qwen2.5-1.5B the same quantizer fails below 8 bits. |
+| Tolerance to KV eviction follows model generation, not size. | In five Qwen2.5/Qwen3 pairs of matched size, the newer model keeps half its accuracy at 17 to 33 points less of its cache. Every model released from November 2024 onwards collapses at 33–69% of its budget, every earlier one at 76–86%. |
+| Content-based scorers fall below random eviction only because they cannot see the question. | Appending the question before compression lifts SnapKV and TOVA by a median 0.52 in accuracy (up to 0.98); methods that ignore the question move by a median 0.02. |
+| Eviction that scatters its losses leaves fragments that the model takes for the fact. | On the six models whose self-report passes both uncompacted controls, SnapKV's wrong answers are claimed as still answerable in up to 74% of cases, against at most 11% for StreamingLLM, which removes a fact whole. In those SnapKV failures 70% of the key's cache slots survived, against 24% when the model correctly reported the loss. |
+| Whether exact memory beats a summary depends on how much the questions need. | On documents with four times as many facts, the point where an exact raw buffer overtakes a summary moves from 41% to 13% of the budget on Qwen2.5-1.5B. |
+
+## Tasks
+
+| Task | Question it answers | Main metrics |
 |---|---|---|
-| `frontier` | how much accuracy does each method buy at a given BPT budget? | accuracy vs BPT |
-| `reversibility` | at *equal* storage budget, does recoverable (raw, bounded) storage beat lossy (summary) storage? | recall vs budget |
-| `attribution` | does the system **know what it dropped**? (post-compaction answerability self-report vs actual correctness) | AUROC, overclaim rate |
-| `confidence` | is post-compaction confidence **calibrated**? | ECE, AUROC vs budget |
-
-## Project page
-
-`docs/` is a static, dependency-free page (plain HTML, CSS, and one script) that
-lets a reader explore the results interactively: the mechanisms on one BPT axis,
-the collapse point by model and size, the question-aware ablation, the audit, and
-reversibility. Every chart has a table view, and every number comes from the run
-records through `scripts/export_site_data.py`:
-
-```bash
-python scripts/export_site_data.py runs docs/data.js   # regenerate the data file
-python -m http.server -d docs 8000                       # preview locally
-```
-
-The page makes no external requests and names no author, so it can be served
-anonymously during review.
-
-- **During review (anonymous, free):** mirror this repository on
-  [Anonymous GitHub](https://anonymous.4open.science), list the words to redact
-  (names, GitHub username, institution), enable its GitHub Pages option with
-  `docs/` as the source, and set an expiry after the review period. It serves an
-  anonymized copy of the code and of this page under anonymous URLs. Put the
-  anonymous code URL in `data-code-url` on the `<body>` of `docs/index.html`.
-- **After review:** Settings > Pages > Deploy from a branch > `main` / `docs`.
+| `frontier` | How much accuracy does each KV method keep at each budget? `--query-aware` puts the question in the context before compression; `--variant multikey` adds three same-format distractor needles. | accuracy vs BPT, collapse point |
+| `mechanisms` | How do eviction, KV quantization, eviction followed by quantization, LLMLingua-2, and the model's own summary compare at matched bytes? | accuracy vs measured BPT |
+| `reversibility` | At equal storage, does an exact but bounded raw buffer beat a rolling summary? `--dense` uses 48 facts per document instead of 12. | accuracy vs budget |
+| `audit` | Does the system know what it lost? A yes/no probe and the answer with a stated confidence read the same compressed cache, next to uncompacted present and absent controls, with the survival of the fact's key and value tokens logged. | overclaim, stated confidence, token survival |
+| `attribution`, `confidence` | The earlier two-call versions of the audit, kept for reference. | AUROC, overclaim, ECE |
 
 ## Install
 
 ```bash
-pip install -e .            # needs a CUDA torch; see below
+pip install -e .                 # install a CUDA build of torch first
+pip install -e ".[quant]"        # bitsandbytes, for 4-bit NF4 weights
+pip install -e ".[mech]"         # LLMLingua-2, for the mechanisms task
 ```
 
 Dependencies: `torch`, `transformers`, `kvpress` (NVIDIA), `datasets`,
-`matplotlib`. Install a CUDA-matched torch first if pip's default doesn't fit your
-system. Default model is `Qwen/Qwen2.5-1.5B-Instruct`, chosen to run on an 8 GB
-consumer GPU (~3 GiB VRAM in fp16); pass `--model` to scale up.
+`matplotlib`. The default model, `Qwen/Qwen2.5-1.5B-Instruct`, runs on an 8 GB
+GPU in fp16. Every task takes `--model`, `--quant {fp16,bf16,nf4,prequant}`,
+`--trials`, and `--out`; `compactbench <task> --help` lists the sweep flags.
+`prequant` loads a checkpoint that was saved already in 4-bit.
 
-## Run
-
-```bash
-compactbench frontier                          # accuracy-vs-budget sweep
-compactbench reversibility                     # equal-budget recoverable vs lossy
-compactbench attribution                       # self-knowledge of loss
-compactbench confidence                        # calibration under compression
-compactbench figures                           # render figures from runs/*.json
-```
-
-Every task takes `--model`, `--trials`, `--out`, and task-specific sweep flags;
-`compactbench <task> --help` lists them. Results are JSON (per-record + summary).
-
-## Running at other scales
-
-The full-cache BPT anchor is a property of a model's attention shape, not its
-parameter count, so different models sit at very different points on the axis:
-Qwen2.5-0.5B anchors at 12,288 bytes per token and Phi-3.5-mini, which keeps 32 KV
-heads instead of 2, anchors at 393,216. Comparing rungs that far apart is what tells
-you whether the accuracy collapse lives at a fixed *fraction* of a model's own
-budget or at a fixed *byte count*.
+## Quick start
 
 ```bash
-pip install -e ".[quant]"           # adds bitsandbytes for 4-bit weights
-./scripts/scale_sweep.sh            # the six-rung ladder, cheapest first
-./scripts/scale_sweep.sh qwen7b     # or one rung by tag
-compactbench scale --runs runs/scale
+compactbench frontier      --model Qwen/Qwen3-1.7B --quant bf16
+compactbench mechanisms    --model Qwen/Qwen3-1.7B --quant bf16
+compactbench audit         --model Qwen/Qwen3-1.7B --quant bf16
+compactbench reversibility --model Qwen/Qwen3-1.7B --quant bf16 --dense
 ```
 
-`--quant nf4` loads weights in 4-bit NF4, which fits a 7B model in under 7 GiB of
-VRAM including the cache. Weight precision is independent of the KV budget the
-benchmark sweeps, and it is recorded in every run's config; the ladder runs
-Qwen2.5-1.5B at both fp16 and NF4 so the size of that confound is measured rather
-than assumed.
+Each run writes one JSON file with its full configuration and a record or
+aggregate per cell, so every statistic can be recomputed as a simple aggregate.
 
-**Results (all six rungs, RTX 4060, 6h45m total).** The collapse point, the
-budget fraction where accuracy first falls under half the model's own baseline,
-lands within 82-86% at every rung, from Qwen2.5-0.5B up through Phi-3.5-mini's
-393,216-byte anchor: the collapse is a property of the budget fraction, not the
-absolute byte count. The attribution auditability finding replicates exactly
-(StreamingLLM overclaims 0.00 at every rung). The reversibility crossover holds
-at every full-precision rung but is eliminated by 4-bit weights at two of four
-quantized rungs, reappearing at 7B-NF4, a genuine and unexplained precision
-sensitivity we report rather than paper over. Full per-rung numbers, protocol,
-and discussion are in the paper (`iclr/main.tex`, §4.5 and Limitations, in the
-companion repo).
+## Reproducing the paper
 
-**We cannot run above 7B on the hardware this was built for.** If you have the
-capacity, the sweep script and `compactbench scale` will read your JSON alongside
-ours, and we would like to see it. Open an issue with the run files attached.
+The runs came in three batches, all on the replication subset (contexts of 2,000
+and 4,000 tokens, three needle depths, 8 trials, 48 generations per cell).
 
-## Reference results (Qwen2.5-1.5B-Instruct, RTX 4060)
+```bash
+./scripts/scale_sweep.sh                            # batches 1 and 2, by setting tag
+python scripts/queue.py scripts/jobs_v3.txt q.log   # batch 3, exactly as run
+python scripts/v3_report.py runs                    # the paper's tables
+python scripts/v3_report.py runs table              # the per-setting appendix table
+python scripts/v3_figures.py runs figures           # mechanisms and collapse-vs-size figures
+compactbench scale --runs runs/scale                # the appendix frontier figures
+```
 
-**Frontier** (needle retrieval in natural filler, 1,395 generations): the full
-cache scores 1.00; every KV method collapses to ~0 below ~25% of the full budget,
-with query-conditioned and sink-aware policies holding accuracy to smaller budgets
-and random eviction collapsing first.
+`scripts/queue.py` runs a job file one line at a time, skips jobs whose output
+already exists, and re-reads the file after each job, so an interrupted batch
+resumes where it stopped. The per-generation records behind the paper ship with
+the submission's supplementary material under `runs/`.
 
-**Reversibility** (equal token budget, compaction on overflow only):
+## Project page
 
-| budget | irreversible (summary) | reversible (raw, bounded) |
-|---|---|---|
-| 10%  | 0.22 | 0.11 |
-| 25%  | 0.47 | 0.25 |
-| 50%  | 0.31 | 0.44 |
-| 75%  | 0.44 | 0.69 |
-| 100% | 1.00 | 0.92 |
+`docs/` is a static page (plain HTML, CSS, and one script, with no dependencies
+and no external requests) that lets a reader explore the results: the mechanisms
+on one axis, the collapse point by model and size with linked accuracy curves, the
+question-aware ablation, the audit with its controls, and reversibility. Every
+chart has a table view.
 
-The two strategies trade places: recoverable storage converts budget into recall
-monotonically and leads once the budget is adequate; under tight budgets the lossy
-summary leads because it spans the whole history. Reversibility dominates
-*conditionally*, not universally.
+```bash
+python scripts/export_site_data.py runs docs/data.js   # regenerate the data
+python -m http.server -d docs 8000                       # preview locally
+```
 
-**Attribution** (does the system know what it dropped? n=18/cell):
+To publish it after the review period, enable GitHub Pages from `main` / `docs`.
 
-| method | ratio | acc | AUROC (self-report) | overclaim |
-|---|---|---|---|---|
-| StreamingLLM | 0.50 | 0.67 | 0.75 | 0.00 |
-| StreamingLLM | 0.75 | 0.33 | 0.75 | 0.00 |
-| SnapKV | 0.50 | 0.00 | — | 0.44 |
-| SnapKV | 0.75 | 0.00 | — | 0.28 |
-| Random | 0.50 | 0.06 | 0.24 | 0.53 |
+## Implementation notes
 
-Self-knowledge tracks the *structure* of the eviction policy: positional
-StreamingLLM keeps a predictable set and never overclaims, while content-based and
-random eviction overclaim on 28–53% of failures ("—" = AUROC undefined, single
-class).
-
-**Confidence** (is post-compaction confidence calibrated?):
-
-| method | ratio | acc | mean conf | ECE |
-|---|---|---|---|---|
-| baseline (full cache) | 0.00 | 1.00 | 0.92 | **0.08** |
-| SnapKV | 0.50 | 0.00 | 0.87 | 0.87 |
-| SnapKV | 0.90 | 0.00 | 0.93 | **0.93** |
-| StreamingLLM | 0.90 | 0.00 | 0.96 | **0.96** |
-
-Verbal confidence is blind to compaction: stated confidence stays (or rises) near
-0.9 while accuracy falls to zero, so calibration error scales with compression.
-The model cannot feel its memory being removed.
-
-## Design notes and caveats
-
-- **BPT accounting** (`compactbench/bpt.py`): eviction keeping fraction *f* costs
-  *f*·(full KV bytes/token); *b*-bit quantization costs *b*/16; prompt or summary
-  compression to *m* of *n* tokens costs *m*/*n*; soft/gist tokens are priced by
-  their stored vectors. Physical bytes upper-bound information content; the axis
-  is a budget, not an entropy estimate.
-- **Query-conditioned presses** (e.g. SnapKV) compress differently for the
-  attribution probe than for the answer question, since each call sees a different
-  trailing query. The attribution task therefore measures self-knowledge *under
-  the system's own compaction policy*, not on a frozen retained set.
-- Reference scale is deliberately small (a 1.5B model, one consumer GPU) so anyone
-  can reproduce; the protocol is model-agnostic and the harness takes `--model`.
+- **BPT accounting.** Eviction that keeps a fraction *f* of tokens costs *f* of
+  the full cache. A *b*-bit quantized cache also pays for its per-group scales and
+  zero points and for any entries kept at full precision, so the quantizer here
+  costs (*b* + 1.48)/16 of the full cache: 34% at 4 bits, not 25%. Prompt
+  compression and summaries cost the measured ratio of kept to original tokens.
+  See `compactbench/bpt.py` and `compactbench/presses.py`.
+- **Question-agnostic compression.** KVPress compresses the context during
+  prefill and appends the question afterwards, so every press, SnapKV included,
+  commits to a retained set before it sees the question. `--query-aware` changes
+  only what the scorer sees.
+- **One cache per audit.** `audit` asks its probe and its answer from the same
+  compressed cache through KVPress's multi-question path, so every press, the
+  unseeded random press included, gives both questions the same retained set.
+  A completion without a stated confidence is recorded as missing, not as 50.
+- **KV quantization.** `QuantPress` quantizes keys per channel and values per
+  token in groups of 32 and keeps the largest 1% of each layer's entries in fp16.
+  Without those outliers, 4-bit keys break Qwen2.5, whose first layer holds key
+  magnitudes near 300.
+- **OLMo-2.** KVPress rebuilds queries for scoring without OLMo-2's QK-norm and
+  mixes its float32 rotary tables with bf16 queries. `compactbench/models.py`
+  corrects both inside the scoring hook only.
+- **Multi-GPU.** KVPress cannot compress a model sharded across GPUs, so models
+  that do not fit one card at 16 bits run in 4-bit NF4 on a single GPU.
+- **Reversibility summary cap.** The summary may use its whole budget: generation
+  is capped at the budget plus 40 tokens and then truncated to the budget.
 
 ## Citation
 
-```bibtex
-@article{colaco2026keepforget,
-  title   = {What to Keep, What to Forget: A Rate--Distortion View of Memory
-             Compaction in LLMs and Agents},
-  author  = {Colaco, Ashwin Gerard and Lahjouji, Nada},
-  year    = {2026},
-  note    = {arXiv preprint}
-}
-```
+Citation details will be added after the review period.
 
-MIT license.
+## License
+
+MIT.
