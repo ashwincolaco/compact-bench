@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>COMPACT-Bench</title>
+<meta name="description" content="Interactive results for COMPACT-Bench: memory compaction methods for LLMs measured on one budget axis, bytes of retained state per token of history.">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='9' width='3' height='6' fill='%232a78d6'/%3E%3Crect x='6.5' y='5' width='3' height='10' fill='%232a78d6'/%3E%3Crect x='12' y='1' width='3' height='14' fill='%23eb6834'/%3E%3C/svg%3E">
+<script>
+  try { var t = localStorage.getItem("cb-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<!-- Set data-code-url to the anonymous code mirror (or the public repo after review). Empty: the Code link jumps to "Run it". -->
+<body data-code-url="">
+<header class="top">
+  <div class="wrap">
+    <div class="kicker">Anonymous authors · under review at ICLR 2027</div>
+    <h1>COMPACT-Bench: one budget axis for memory compaction in LLMs and agents</h1>
+    <p class="lede">Every compaction method, from KV eviction to agent summaries, priced in the same unit: bytes of retained state per token of history. The results below are drawn from the per-generation records; hover anything.</p>
+    <div class="links">
+      <a href="paper.pdf">Paper (PDF)</a><span class="sep">·</span>
+      <a id="code-link" href="#run">Code</a><span class="sep">·</span>
+      <a href="data.js">Data behind these charts</a>
+      <button class="theme-btn" id="theme-btn" type="button">Dark</button>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs" aria-label="Results">
+  <div class="wrap" role="tablist" id="tablist"></div>
+</nav>
+
+<main class="wrap" id="views"></main>
+
+<div class="wrap">
+  <section class="run" id="run">
+    <h2>Run it</h2>
+    <div class="runcols">
+      <pre><code>pip install -e .                 # CUDA build of torch first
+pip install -e ".[quant]"        # 4-bit NF4 weights
+
+compactbench frontier    --model Qwen/Qwen3-1.7B --quant bf16
+compactbench mechanisms  --model Qwen/Qwen3-1.7B --quant bf16
+compactbench audit       --model Qwen/Qwen3-1.7B --quant bf16
+compactbench reversibility --dense --model Qwen/Qwen3-1.7B
+
+python scripts/export_site_data.py runs docs/data.js</code></pre>
+      <ul class="facts" id="facts"></ul>
+    </div>
+  </section>
+  <footer>Every number on this page is recomputed from the released per-generation JSON records by <code>scripts/export_site_data.py</code>. No tracking, no external requests.</footer>
+</div>
+
+<div id="tip" role="tooltip" aria-hidden="true"></div>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

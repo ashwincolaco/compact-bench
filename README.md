@@ -23,6 +23,30 @@ and Agents* (Colaco & Lahjouji, 2026).
 | `attribution` | does the system **know what it dropped**? (post-compaction answerability self-report vs actual correctness) | AUROC, overclaim rate |
 | `confidence` | is post-compaction confidence **calibrated**? | ECE, AUROC vs budget |
 
+## Project page
+
+`docs/` is a static, dependency-free page (plain HTML, CSS, and one script) that
+lets a reader explore the results interactively: the mechanisms on one BPT axis,
+the collapse point by model and size, the question-aware ablation, the audit, and
+reversibility. Every chart has a table view, and every number comes from the run
+records through `scripts/export_site_data.py`:
+
+```bash
+python scripts/export_site_data.py runs docs/data.js   # regenerate the data file
+python -m http.server -d docs 8000                       # preview locally
+```
+
+The page makes no external requests and names no author, so it can be served
+anonymously during review.
+
+- **During review (anonymous, free):** mirror this repository on
+  [Anonymous GitHub](https://anonymous.4open.science), list the words to redact
+  (names, GitHub username, institution), enable its GitHub Pages option with
+  `docs/` as the source, and set an expiry after the review period. It serves an
+  anonymized copy of the code and of this page under anonymous URLs. Put the
+  anonymous code URL in `data-code-url` on the `<body>` of `docs/index.html`.
+- **After review:** Settings > Pages > Deploy from a branch > `main` / `docs`.
+
 ## Install
 
 ```bash
